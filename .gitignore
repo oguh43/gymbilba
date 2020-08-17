@@ -1,3 +1,5 @@
 *.lock
 *.html
 *.htm
+stravacz.py
+__pycache__/errors.cpython-38.pyc

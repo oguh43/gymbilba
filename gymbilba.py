@@ -51,6 +51,7 @@ class Gymbilba():
             outer["gymbilba"] = data
             _.write(json.dumps(outer))
         return
+        
     def login(self,mode="data"):
         data = {
             "csrfauth" : self.auth,

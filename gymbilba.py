@@ -12,7 +12,8 @@ class Gymbilba():
     LOGIN_URL = "https://gymbilba.edupage.org/login/edubarLogin.php?"
     BASE_URL = "https://gymbilba.edupage.org/"
     PATH = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))+"\\creds.lock"
-    DEBUG = False
+    __MAPPER_RAN = False
+    DEBUG = True
 
     def __init__(self):
         try:
@@ -39,15 +40,15 @@ class Gymbilba():
             outer = {}
         with open(self.PATH,"w+") as _:
             data = {}
-            data["token"] = ""
+            data["token"] = None
             data["username"] = ""
             data["password"] = ""
-            while data["token"] == "":
-                data["token"] = str(input("Token?\n "))
+            while data["token"] is None:
+                data["token"] = str(input("Token? (optional)\n"))
             while data["username"] == "":
-                data["username"] = str(input("User?\n "))
+                data["username"] = str(input("User?\n"))
             while data["password"] == "":
-                data["password"] = str(input("Password?\n "))
+                data["password"] = str(input("Password?\n"))
             outer["gymbilba"] = data
             _.write(json.dumps(outer))
         return
@@ -310,3 +311,65 @@ class Gymbilba():
     
     def get_updateinterval(self):
         return self.__data__["updateInterval"]
+
+    def id_mapper(self):
+        raise UnimplementedError
+        if self.__MAPPER_RAN:
+            return
+        self.__MAPPER_RAN = True
+        ids = {}
+        for index in range(len(self.__data__["items"])):
+            ids[self.__data__["items"][index]["ineid"]] = {}
+            ids[self.__data__["items"][index]["ineid"]]["text"] = self.__data__["items"][index]["text"]
+            ids[self.__data__["items"][index]["ineid"]]["location"] = "items"
+        for key in ["teachers","subjects","classrooms"]:
+            for index in list(self.__data__["dbi"][key].keys()):
+                ids[self.__data__["dbi"][key][index]["id"]] = {}
+                try:
+                    ids[self.__data__["dbi"][key][index]["id"]]["text"] = self.__data__["dbi"][key][index]["firstname"] + " " + self.__data__["dbi"][key][index]["lastname"]
+                    ids[self.__data__["dbi"][key][index]["id"]]["location"] = key
+                except KeyError:
+                    ids[self.__data__["dbi"][key][index]["id"]]["text"] = self.__data__["dbi"][key][index]["name"]
+                    ids[self.__data__["dbi"][key][index]["id"]]["location"] = key
+        for index in list(self.__data__["dbi"]["classes"].keys()):
+            ids[self.__data__["dbi"]["classes"][index]["id"]] = {}
+            ids[self.__data__["dbi"]["classes"][index]["id"]]["text"] = self.__data__["dbi"]["classes"][index]["name"]
+            ids[self.__data__["dbi"]["classes"][index]["id"]]["location"] = "classes"
+            if self.__data__["dbi"]["classes"][index]["teacherid"] == "":
+                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1id"] = None
+            else:
+                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1id"] = self.__data__["dbi"]["classes"][index]["teacherid"]
+            if self.__data__["dbi"]["classes"][index]["teacher2id"] == "":
+                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2id"] = None
+            else:
+                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2id"] = self.__data__["dbi"]["classes"][index]["teacher2id"]
+            if self.__data__["dbi"]["classes"][index]["classroomid"] == "":
+                ids[self.__data__["dbi"]["classes"][index]["id"]]["classroomid"] = None
+            else:
+                ids[self.__data__["dbi"]["classes"][index]["id"]]["classroomid"] = self.__data__["dbi"]["classes"][index]["classroomid"]
+            if ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1id"] is not None:
+                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1"] = self.id_resolver(ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1id"],_db=ids)[ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1id"]]["text"]
+            else:
+                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1"] = None
+            if ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2id"] is not None:
+                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2"] = self.id_resolver(ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2id"],_db=ids)[ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2id"]]["text"]
+            else:
+                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2"] = None
+            if ids[self.__data__["dbi"]["classes"][index]["id"]]["classroomid"] is not None:
+                ids[self.__data__["dbi"]["classes"][index]["id"]]["classroom"] = self.id_resolver(ids[self.__data__["dbi"]["classes"][index]["id"]]["classroomid"],_db=ids)[ids[self.__data__["dbi"]["classes"][index]["id"]]["classroomid"]]["text"]
+            else:
+                ids[self.__data__["dbi"]["classes"][index]["id"]]["classroom"] = None
+        self.mapped_id = ids
+        return self.mapped_id.copy()
+
+    def id_resolver(self,search,_db=None):
+        if not self.__MAPPER_RAN:
+            self.id_mapper()
+        if _db is None:
+            _db = self.mapped_id
+        print("LOOKING FOR:",search)
+        try:
+            print({search : _db[search]})
+            return {search : _db[search]}
+        except KeyError:
+            return {search : {"text":"KeyError","location":None}}

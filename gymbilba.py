@@ -367,7 +367,6 @@ class Gymbilba():
             self.id_mapper()
         if _db is None:
             _db = self.mapped_id
-        print("LOOKING FOR:",search)
         try:
             print({search : _db[search]})
             return {search : _db[search]}

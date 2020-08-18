@@ -1,5 +1,6 @@
 import os
 import re
+import copy
 import json
 import requests
 import itertools
@@ -28,7 +29,6 @@ class Gymbilba():
                 self.auth = _["gymbilba"]["token"]
                 self.name = _["gymbilba"]["username"]
                 self.password = _["gymbilba"]["password"]
-            
         self.session = requests.Session()
         self.login(mode="init")
     
@@ -318,11 +318,14 @@ class Gymbilba():
             return
         self.__MAPPER_RAN = True
         ids = {}
+        data = {}
         for index in range(len(self.__data__["items"])):
             ids[self.__data__["items"][index]["ineid"]] = {}
             ids[self.__data__["items"][index]["ineid"]]["text"] = self.__data__["items"][index]["text"]
             ids[self.__data__["items"][index]["ineid"]]["location"] = "items"
-        for key in ["teachers","subjects","classrooms"]:
+            ids[self.__data__["items"][index]["ineid"]]["data"] = data
+            data = {}
+        for key in ["teachers","subjects","classrooms","absent_types","substitution_types"]:
             for index in list(self.__data__["dbi"][key].keys()):
                 ids[self.__data__["dbi"][key][index]["id"]] = {}
                 try:
@@ -331,34 +334,52 @@ class Gymbilba():
                 except KeyError:
                     ids[self.__data__["dbi"][key][index]["id"]]["text"] = self.__data__["dbi"][key][index]["name"]
                     ids[self.__data__["dbi"][key][index]["id"]]["location"] = key
+                    if key == "substitution_types":
+                        data["short"] = self.__data__["dbi"][key][index]["short"] if self.__data__["dbi"][key][index]["short"] != "" else None
+                ids[self.__data__["dbi"][key][index]["id"]]["data"] = data
+                data = {}
         for index in list(self.__data__["dbi"]["classes"].keys()):
             ids[self.__data__["dbi"]["classes"][index]["id"]] = {}
             ids[self.__data__["dbi"]["classes"][index]["id"]]["text"] = self.__data__["dbi"]["classes"][index]["name"]
             ids[self.__data__["dbi"]["classes"][index]["id"]]["location"] = "classes"
             if self.__data__["dbi"]["classes"][index]["teacherid"] == "":
-                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1id"] = None
+                data["teacher1id"] = None
             else:
-                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1id"] = self.__data__["dbi"]["classes"][index]["teacherid"]
+                data["teacher1id"] = self.__data__["dbi"]["classes"][index]["teacherid"]
             if self.__data__["dbi"]["classes"][index]["teacher2id"] == "":
-                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2id"] = None
+                data["teacher2id"] = None
             else:
-                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2id"] = self.__data__["dbi"]["classes"][index]["teacher2id"]
+                data["teacher2id"] = self.__data__["dbi"]["classes"][index]["teacher2id"]
             if self.__data__["dbi"]["classes"][index]["classroomid"] == "":
-                ids[self.__data__["dbi"]["classes"][index]["id"]]["classroomid"] = None
+                data["classroomid"] = None
             else:
-                ids[self.__data__["dbi"]["classes"][index]["id"]]["classroomid"] = self.__data__["dbi"]["classes"][index]["classroomid"]
-            if ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1id"] is not None:
-                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1"] = self.id_resolver(ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1id"],_db=ids)[ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1id"]]["text"]
+                data["classroomid"] = self.__data__["dbi"]["classes"][index]["classroomid"]
+            data["teacher1"] = self.id_resolver(data["teacher1id"],_db=ids)[data["teacher1id"]]["text"]
+            data["teacher2"] = self.id_resolver(data["teacher2id"],_db=ids)[data["teacher2id"]]["text"]
+            data["classroom"] = self.id_resolver(data["classroomid"],_db=ids)[data["classroomid"]]["text"]
+            ids[self.__data__["dbi"]["classes"][index]["id"]]["data"] = data
+            data = {}
+        for index in list(self.__data__["dbi"]["students"].keys()):
+            ids[self.__data__["dbi"]["students"][index]["id"]] = {}
+            ids[self.__data__["dbi"]["students"][index]["id"]]["text"] = self.__data__["dbi"]["students"][index]["firstname"] + " " + self.__data__["dbi"]["students"][index]["lastname"]
+            ids[self.__data__["dbi"]["students"][index]["id"]]["location"] = "students"
+            data["classid"] = self.__data__["dbi"]["students"][index]["classid"]
+            data["parent1id"] = self.__data__["dbi"]["students"][index]["parent1id"]
+            data["parent2id"] = self.__data__["dbi"]["students"][index]["parent2id"]
+            data["gender"] = self.__data__["dbi"]["students"][index]["gender"]
+            data["datefrom"] = self.__data__["dbi"]["students"][index]["datefrom"]
+            data["numberinclass"] = self.__data__["dbi"]["students"][index]["numberinclass"]
+            if self.__data__["dbi"]["students"][index]["parent3id"] == "":
+                data["parent3id"] = None
             else:
-                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher1"] = None
-            if ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2id"] is not None:
-                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2"] = self.id_resolver(ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2id"],_db=ids)[ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2id"]]["text"]
-            else:
-                ids[self.__data__["dbi"]["classes"][index]["id"]]["teacher2"] = None
-            if ids[self.__data__["dbi"]["classes"][index]["id"]]["classroomid"] is not None:
-                ids[self.__data__["dbi"]["classes"][index]["id"]]["classroom"] = self.id_resolver(ids[self.__data__["dbi"]["classes"][index]["id"]]["classroomid"],_db=ids)[ids[self.__data__["dbi"]["classes"][index]["id"]]["classroomid"]]["text"]
-            else:
-                ids[self.__data__["dbi"]["classes"][index]["id"]]["classroom"] = None
+                data["parent3id"] = self.__data__["dbi"]["students"][index]["parent3id"]
+            data["classdata"] = self.id_resolver(data["classid"],_db=ids)[data["classid"]]
+            transform = data["classdata"]["data"]
+            data["classdata"].pop("data",None)
+            for index2 in list(transform.keys()):
+                data["classdata"][index2] = transform[index2]
+            ids[self.__data__["dbi"]["students"][index]["id"]]["data"] = data
+            data = {}
         self.mapped_id = ids
         return self.mapped_id.copy()
 
@@ -368,7 +389,6 @@ class Gymbilba():
         if _db is None:
             _db = self.mapped_id
         try:
-            print({search : _db[search]})
-            return {search : _db[search]}
+            return copy.deepcopy({search : _db[search]})
         except KeyError:
-            return {search : {"text":"KeyError","location":None}}
+            return {search : {"text":None,"location":None,"data":{}}}

@@ -14,7 +14,7 @@ class Gymbilba():
     BASE_URL = "https://gymbilba.edupage.org/"
     PATH = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))+"\\creds.lock"
     __MAPPER_RAN = False
-    DEBUG = True
+    DEBUG = False
 
     def __init__(self):
         try:
@@ -325,7 +325,7 @@ class Gymbilba():
             ids[self.__data__["items"][index]["ineid"]]["location"] = "items"
             ids[self.__data__["items"][index]["ineid"]]["data"] = data
             data = {}
-        for key in ["teachers","subjects","classrooms","absent_types","substitution_types"]:
+        for key in ["teachers","subjects","classrooms","absent_types","substitution_types","studentabsent_types","dayparts"]:
             for index in list(self.__data__["dbi"][key].keys()):
                 ids[self.__data__["dbi"][key][index]["id"]] = {}
                 try:
@@ -334,8 +334,16 @@ class Gymbilba():
                 except KeyError:
                     ids[self.__data__["dbi"][key][index]["id"]]["text"] = self.__data__["dbi"][key][index]["name"]
                     ids[self.__data__["dbi"][key][index]["id"]]["location"] = key
-                    if key == "substitution_types":
+                    if key in ["substitution_types","absent_types","studentabsent_types","dayparts"]:
                         data["short"] = self.__data__["dbi"][key][index]["short"] if self.__data__["dbi"][key][index]["short"] != "" else None
+                        try:
+                            data["excuse_type"] = self.__data__["dbi"][key][index]["excuse_type"] if self.__data__["dbi"][key][index]["excuse_type"] != "" else None
+                        except KeyError:
+                            try:
+                                data["starttime"] = self.__data__["dbi"][key][index]["starttime"] if self.__data__["dbi"][key][index]["starttime"] != "" else None
+                                data["endtime"] = self.__data__["dbi"][key][index]["endtime"] if self.__data__["dbi"][key][index]["endtime"] != "" else None
+                            except KeyError:
+                                pass
                 ids[self.__data__["dbi"][key][index]["id"]]["data"] = data
                 data = {}
         for index in list(self.__data__["dbi"]["classes"].keys()):
@@ -380,6 +388,14 @@ class Gymbilba():
                 data["classdata"][index2] = transform[index2]
             ids[self.__data__["dbi"]["students"][index]["id"]]["data"] = data
             data = {}
+        for index in list(self.__data__["dbi"]["students"].keys()):
+            for parent in ["parent1id","parent2id","parent3id"]:
+                if self.__data__["dbi"]["students"][index][parent]!= "":
+                    ids[self.__data__["dbi"]["students"][index][parent]] = {}
+                    ids[self.__data__["dbi"]["students"][index][parent]]["text"] = self.__data__["dbi"]["students"][index]["firstname"] + " " + self.__data__["dbi"]["students"][index]["lastname"] + " " + parent
+                    ids[self.__data__["dbi"]["students"][index][parent]]["location"] = "students:"+parent
+                    ids[self.__data__["dbi"]["students"][index][parent]]["data"] = {}
+                    ids[self.__data__["dbi"]["students"][index][parent]]["data"]["parentof"] = index
         self.mapped_id = ids
         return self.mapped_id.copy()
 

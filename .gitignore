@@ -2,3 +2,7 @@
 *.html
 *.htm
 __pycache__/errors.cpython-38.pyc
+test.py
+__pycache__/gymbilba.cpython-38.pyc
+log.txt
+.gitignore

@@ -81,14 +81,14 @@ class Gymbilba():
                 elif mode == "data":
                     soup = BeautifulSoup(response.text,"html.parser")
                     script = soup.body.find_all("script")[2]
-                    array = re.findall('(?si)userhome\((.*?)\);', str(script))
+                    array = re.findall('(?si)userhome\((.*?\})\);', str(script))
                     if len(array) == 1:
                         self.__data__ = json.loads("".join(array))
                         return self.__data__
                     else:
                         raise ArrayLengthError(len(array))
                 elif mode == "init":
-                    array = re.findall(r'(?<={}).*?(?={})'.format("userhome\(","\);"), response.text)
+                    array = re.findall(r'(?<={}).*?\}}(?={})'.format("userhome\(","\);"), response.text)
                     if len(array) == 1:
                         self.__data__ = json.loads("".join(array))
                         self.__LOGGED_IN = True
@@ -99,6 +99,35 @@ class Gymbilba():
         else:
             raise ResponseError(response.status_code)
 
+    def get_substitution(self):
+        soup = BeautifulSoup("".join(re.findall("(?<=\\.signature {font-Size:inherit}<\\/style>)(.*)(?=<div style=\\\\\"text-align:center;font-size:12px\\\\\">)",self.session.get(f"{self.__BASE_URL}dashboard/eb.php?mode=substitution").text)).replace("\\",""),"html.parser")
+        ret = soup.find_all("div",string=re.compile(".+"))
+        allData = []
+        for x in ret:
+            allData.append(x.text)
+        ret = soup.find_all("div",class_="header")
+        triedy = []
+        for x in ret:
+            triedy.append(x.text)
+
+        fin = {
+            "meta": {}
+        }
+        fin["meta"]["missing_teachers"] = [re.sub(" +"," ",word.strip()) for word in re.findall(".+: (.*)",allData.pop(0))[0].split(",")]
+        fin["meta"]["missing_classes"] = [re.sub(" +"," ",word.strip()) for word in re.findall(".+: (.*)",allData.pop(0))[0].split(",")]
+
+        current = ""
+        for line in allData:
+            if line in triedy:
+                current = line
+                fin[line] = {}
+                continue
+            if re.search("(?<=\()(\d)(?=\))|^\d$|^\d+ ?- ?\d+$|(?<=\()(\d+ ?- ?\d+)(?=\))",line) != None:
+                fin[current][re.search("(?<=\()(\d)(?=\))|^\d$|^\d+ ?- ?\d+$|(?<=\()(\d+ ?- ?\d+)(?=\))",line).group(0)] = "" 
+            else:
+                fin[current][list(fin[current].keys())[-1]] = line
+        return fin
+        
     def get_news(self,*,count : int = -1,parse : bool = True,outer_allowed : list = ["timestamp","reakcia_na","typ","user","target_user","user_meno","text","cas_udalosti","data","vlastnik","vlastnik_meno","pocet_reakcii","pomocny_zaznam","removed"],inner_allowed : list = ["title"]) -> dict:
         data = self.__data__["items"]
         if count > len(data) or count < 1:
